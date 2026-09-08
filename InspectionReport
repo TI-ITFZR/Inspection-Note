@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Inspection Report Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root {
+    --ink: #1c2230;
+    --ink-soft: #4a5164;
+    --line: #c9cdd6;
+    --line-soft: #e3e6ec;
+    --paper: #fbfaf7;
+    --panel: #ffffff;
+    --accent: #7a1f2b;
+    --accent-soft: #f4e7e8;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+    --sans: "IBM Plex Sans", "Segoe UI", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.45;
+  }
+  .masthead {
+    border-bottom: 3px double var(--ink);
+    background: var(--panel);
+    padding: 22px 28px 18px;
+  }
+  .masthead-inner {
+    max-width: 920px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .masthead h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    letter-spacing: 0.01em;
+  }
+  .masthead .tag {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    border: 1px solid var(--line);
+    padding: 3px 9px;
+  }
+  main {
+    max-width: 920px;
+    margin: 28px auto 80px;
+    padding: 0 20px;
+  }
+  .section {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    margin-bottom: 22px;
+  }
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .section-head .num {
+    font-family: var(--mono);
+    color: var(--accent);
+    font-size: 0.85rem;
+  }
+  .section-head h2 {
+    margin: 0;
+    font-size: 1.02rem;
+    font-weight: 600;
+  }
+  .section-head p {
+    margin: 2px 0 0;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+  }
+  .section-body {
+    padding: 18px 20px 20px;
+  }
+  .grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 640px) {
+    .grid2 { grid-template-columns: 1fr; }
+  }
+  label {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    margin-bottom: 5px;
+    font-weight: 600;
+  }
+  input[type="text"], textarea {
+    width: 100%;
+    border: 1px solid var(--line);
+    background: #fff;
+    padding: 8px 10px;
+    font-family: var(--sans);
+    font-size: 0.92rem;
+    color: var(--ink);
+    resize: vertical;
+  }
+  input[type="text"]:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .field { margin-bottom: 14px; }
+  .entry {
+    border: 1px solid var(--line-soft);
+    padding: 14px;
+    margin-bottom: 12px;
+    position: relative;
+    background: #fdfdfc;
+  }
+  .entry-label {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .remove-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+    width: 24px;
+    height: 24px;
+    line-height: 1;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  .remove-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .add-btn {
+    background: none;
+    border: 1px dashed var(--line);
+    color: var(--ink-soft);
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    width: 100%;
+    font-family: var(--sans);
+  }
+  .add-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .bullet-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+  }
+  .bullet-row input { flex: 1; }
+  .bullet-row .remove-btn { position: static; flex-shrink: 0; }
+
+  /* Photo Attachment Styles */
+  .photo-action-bar {
+    display: flex;
+    gap: 8px;
+    margin: 8px 0;
+    flex-wrap: wrap;
+  }
+  .action-btn {
+    background: #f3f4f6;
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    border-radius: 3px;
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .action-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .photo-preview-grid {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .thumb-card {
+    position: relative;
+    width: 88px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border: 1px solid var(--line);
+    background: #fff;
+    padding: 4px;
+    border-radius: 4px;
+  }
+  .thumb-wrap {
+    width: 80px;
+    height: 80px;
+    overflow: hidden;
+    background: #111;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .thumb-wrap img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+  .thumb-actions {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    margin-top: 4px;
+  }
+  .thumb-btn {
+    background: #f1f3f5;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    font-size: 11px;
+    padding: 2px 6px;
+    cursor: pointer;
+    color: var(--ink);
+  }
+  .thumb-btn:hover {
+    background: #e2e6ea;
+  }
+  .thumb-btn.del {
+    color: var(--accent);
+  }
+
+  .footer-actions {
+    position: sticky;
+    bottom: 0;
+    background: var(--paper);
+    border-top: 1px solid var(--line);
+    padding: 14px 20px;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+  }
+  .generate-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 13px 32px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--sans);
+    letter-spacing: 0.01em;
+  }
+  .generate-btn:hover { background: #611620; }
+  .generate-btn:active { transform: translateY(1px); }
+  .status {
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    margin-top: 8px;
+    min-height: 1.2em;
+  }
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div class="masthead-inner">
+    <h1>Inspection Report</h1>
+    <span class="tag">FORM &rarr; .DOCX</span>
+  </div>
+</div>
+
+<main>
+
+  <div class="section">
+    <div class="section-head">
+      <span class="num">01</span>
+      <div>
+        <h2>Inspection details</h2>
+        <p>Appears in the report title and signature block.</p>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="grid2">
+        <div class="field">
+          <label for="inspectionType">Type of inspection</label>
+          <input type="text" id="inspectionType" placeholder="e.g. Night Inspection" />
+        </div>
+        <div class="field">
+          <label for="stationName">Station name</label>
+          <input type="text" id="stationName" placeholder="e.g. Firozpur Cantt" />
+        </div>
+        <div class="field">
+          <label for="stationCode">Station code</label>
+          <input type="text" id="stationCode" placeholder="e.g. FZR" />
+        </div>
+        <div class="field">
+          <label for="officer">Inspecting officer / designation</label>
+          <input type="text" id="officer" placeholder="e.g. Sr.DOM/FZR" />
+        </div>
+        <div class="field">
+          <label for="dateRange">Date(s) of inspection</label>
+          <input type="text" id="dateRange" placeholder="e.g. 30-31/03/2026" />
+        </div>
+        <div class="field">
+          <label for="refNo">Reference number</label>
+          <input type="text" id="refNo" placeholder="e.g. 143-T/Sr.DOM/FZR/2026" />
+        </div>
+        <div class="field">
+          <label for="signatory">Signature line</label>
+          <input type="text" id="signatory" placeholder="e.g. Sr.DOM/FZR." />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <span class="num">02</span>
+      <div>
+        <h2>Staff on duty</h2>
+        <p>First numbered row of the table.</p>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="field">
+        <label for="staffDescription">Description</label>
+        <textarea id="staffDescription" rows="2" placeholder="e.g. SM Sh.  was found alert in proper uniform."></textarea>
+        
+        <div class="photo-action-bar">
+          <button type="button" class="action-btn" onclick="triggerPhoto('staffDescPhotos', false)">Upload Photo</button>
+          <button type="button" class="action-btn" onclick="triggerPhoto('staffDescPhotos', true)">Take Photo</button>
+          <input type="file" id="staffDescPhotos" accept="image/*" multiple style="display:none" onchange="handlePhotoSelect(this)" />
+        </div>
+        <div class="photo-preview-grid" id="staffDescPhotos_preview"></div>
+      </div>
+      <div class="field">
+        <label for="staffRemark">Remark (one per line)</label>
+        <textarea id="staffRemark" rows="2" placeholder="SS/FZR&#10;TI/1/FZR"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <span class="num">03</span>
+      <div>
+        <h2>Observations</h2>
+        <p>Each entry becomes one numbered row.</p>
+      </div>
+    </div>
+    <div class="section-body" id="observationsBody"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <span class="num">04</span>
+      <div>
+        <h2>Counseling</h2>
+        <p>Intro line, then the topics covered.</p>
+      </div>
+    </div>
+    <div class="section-body">
+      <div class="field">
+        <label for="counselingIntro">Intro line</label>
+        <textarea id="counselingIntro" rows="2" placeholder="The staff of FZR station was counseled on the following topics-"></textarea>
+        
+        <div class="photo-action-bar">
+          <button type="button" class="action-btn" onclick="triggerPhoto('counselingIntroPhotos', false)">Upload Photo</button>
+          <button type="button" class="action-btn" onclick="triggerPhoto('counselingIntroPhotos', true)">Take Photo</button>
+          <input type="file" id="counselingIntroPhotos" accept="image/*" multiple style="display:none" onchange="handlePhotoSelect(this)" />
+        </div>
+        <div class="photo-preview-grid" id="counselingIntroPhotos_preview"></div>
+      </div>
+      <label>Topics</label>
+      <div id="counselingItemsBody"></div>
+      <div class="field">
+        <label for="counselingRemark" style="margin-top:12px;">Remark (one per line)</label>
+        <textarea id="counselingRemark" rows="2" placeholder="SS/FZR&#10;TI/1/FZR"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <span class="num">05</span>
+      <div>
+        <h2>Copy to</h2>
+        <p>Distribution list at the bottom of the report.</p>
+      </div>
+    </div>
+    <div class="section-body">
+      <div id="copyToBody"></div>
+    </div>
+  </div>
+
+</main>
+
+<div class="footer-actions">
+  <div>
+    <button class="generate-btn" id="generateBtn">Download Word document</button>
+    <div class="status" id="status"></div>
+  </div>
+</div>
+
+<script>
+const photoStorage = new Map();
+let photoIdCounter = 0;
+
+function triggerPhoto(inputId, useCamera) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  if (useCamera) {
+    input.setAttribute("capture", "environment");
+  } else {
+    input.removeAttribute("capture");
+  }
+  input.click();
+}
+
+// Bakes image to canvas to normalize orientation and resize efficiently
+function processImage(file, callback) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const maxDim = 1200;
+      let w = img.naturalWidth;
+      let h = img.naturalHeight;
+
+      if (w > maxDim || h > maxDim) {
+        if (w > h) {
+          h = Math.round((h * maxDim) / w);
+          w = maxDim;
+        } else {
+          w = Math.round((w * maxDim) / h);
+          h = maxDim;
+        }
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, w, h);
+
+      callback({
+        dataUrl: canvas.toDataURL("image/jpeg", 0.85),
+        width: w,
+        height: h
+      });
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function handlePhotoSelect(input) {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+
+  if (!photoStorage.has(input.id)) {
+    photoStorage.set(input.id, []);
+  }
+  const currentList = photoStorage.get(input.id);
+
+  let processed = 0;
+  files.forEach(file => {
+    processImage(file, function(result) {
+      currentList.push({
+        id: ++photoIdCounter,
+        dataUrl: result.dataUrl,
+        width: result.width,
+        height: result.height
+      });
+      processed++;
+      if (processed === files.length) {
+        renderThumbnails(input.id);
+      }
+    });
+  });
+  input.value = "";
+}
+
+// Rotates image 90 degrees clockwise by re-drawing onto canvas
+function rotatePhoto(containerKey, index) {
+  const list = photoStorage.get(containerKey);
+  if (!list || !list[index]) return;
+
+  const item = list[index];
+  const img = new Image();
+  img.onload = function() {
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalHeight;
+    canvas.height = img.naturalWidth;
+    const ctx = canvas.getContext("2d");
+
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate((90 * Math.PI) / 180);
+    ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+
+    item.dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    item.width = canvas.width;
+    item.height = canvas.height;
+
+    renderThumbnails(containerKey);
+  };
+  img.src = item.dataUrl;
+}
+
+function renderThumbnails(containerKey) {
+  const preview = document.getElementById(containerKey + "_preview");
+  if (!preview) return;
+  preview.innerHTML = "";
+  const list = photoStorage.get(containerKey) || [];
+
+  list.forEach((item, index) => {
+    const card = document.createElement("div");
+    card.className = "thumb-card";
+    card.innerHTML = `
+      <div class="thumb-wrap">
+        <img src="${item.dataUrl}" />
+      </div>
+      <div class="thumb-actions">
+        <button class="thumb-btn" type="button" title="Rotate 90°">↻</button>
+        <button class="thumb-btn del" type="button" title="Delete">✕</button>
+      </div>
+    `;
+
+    card.querySelector(".thumb-btn[title='Rotate 90°']").addEventListener("click", () => {
+      rotatePhoto(containerKey, index);
+    });
+
+    card.querySelector(".thumb-btn.del").addEventListener("click", () => {
+      list.splice(index, 1);
+      renderThumbnails(containerKey);
+    });
+
+    preview.appendChild(card);
+  });
+}
+
+let obsCounter = 0;
+
+function makeObservationEntry() {
+  obsCounter++;
+  const inputId = `obs_photos_${obsCounter}`;
+  const div = document.createElement("div");
+  div.className = "entry observation-entry";
+  div.dataset.photoKey = inputId;
+  div.innerHTML = `
+    <button class="remove-btn" title="Remove">&times;</button>
+    <div class="entry-label">OBSERVATION</div>
+    <div class="field">
+      <label>Description</label>
+      <textarea class="obs-desc" rows="2" placeholder="e.g. AT Panel not found on auto mode, counselled on the spot."></textarea>
+      <div class="photo-action-bar">
+        <button type="button" class="action-btn" onclick="triggerPhoto('${inputId}', false)">Upload Photo</button>
+        <button type="button" class="action-btn" onclick="triggerPhoto('${inputId}', true)">Take Photo</button>
+        <input type="file" id="${inputId}" accept="image/*" multiple style="display:none" onchange="handlePhotoSelect(this)" />
+      </div>
+      <div class="photo-preview-grid" id="${inputId}_preview"></div>
+    </div>
+    <div class="field" style="margin-bottom:0;">
+      <label>Remark (one per line)</label>
+      <textarea class="obs-remark" rows="2" placeholder="SS/FZR&#10;TI/1/FZR"></textarea>
+    </div>
+  `;
+  div.querySelector(".remove-btn").addEventListener("click", () => {
+    photoStorage.delete(inputId);
+    div.remove();
+  });
+  return div;
+}
+
+function addObservation() {
+  document.getElementById("observationsBody").appendChild(makeObservationEntry());
+}
+
+function makeBulletRow(placeholder) {
+  const div = document.createElement("div");
+  div.className = "bullet-row";
+  div.innerHTML = `
+    <input type="text" class="bullet-input" placeholder="${placeholder || 'Topic discussed'}" />
+    <button class="remove-btn" title="Remove">&times;</button>
+  `;
+  div.querySelector(".remove-btn").addEventListener("click", () => div.remove());
+  return div;
+}
+
+function addCounselingItem() {
+  document.getElementById("counselingItemsBody").appendChild(makeBulletRow("Topic discussed"));
+}
+
+function addCopyTo() {
+  document.getElementById("copyToBody").appendChild(makeBulletRow("Recipient, for information / action"));
+}
+
+function addSectionAddButton(containerId, label, onClick) {
+  const btn = document.createElement("button");
+  btn.className = "add-btn";
+  btn.textContent = label;
+  btn.type = "button";
+  btn.addEventListener("click", onClick);
+  document.getElementById(containerId).parentElement.appendChild(btn);
+}
+
+// Initial seed rows
+addObservation();
+addObservation();
+addObservation();
+addCounselingItem();
+addCounselingItem();
+addCopyTo();
+addCopyTo();
+
+addSectionAddButton("observationsBody", "+ Add observation", addObservation);
+document.getElementById("counselingItemsBody").after((() => {
+  const btn = document.createElement("button");
+  btn.className = "add-btn";
+  btn.type = "button";
+  btn.textContent = "+ Add topic";
+  btn.style.marginBottom = "14px";
+  btn.addEventListener("click", addCounselingItem);
+  return btn;
+})());
+addSectionAddButton("copyToBody", "+ Add recipient", addCopyTo);
+
+function esc(s) {
+  return String(s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function cellParagraphs(text, opts) {
+  opts = opts || {};
+  var bold = opts.bold || false;
+  var align = opts.align || null;
+  var spacingAfter = opts.spacingAfter !== undefined ? opts.spacingAfter : 40;
+  var lines = String(text || "").split(/\r?\n/);
+  if (lines.length === 0) lines.push("");
+  return lines
+    .map(function (line, i) {
+      var isLast = i === lines.length - 1;
+      var rPr = bold ? "<w:rPr><w:b/></w:rPr>" : "";
+      var pPr =
+        "<w:pPr>" +
+        (align ? '<w:jc w:val="' + align + '"/>' : "") +
+        '<w:spacing w:after="' + (isLast ? spacingAfter : 0) + '"/></w:pPr>';
+      var run = line.length
+        ? "<w:r>" + rPr + '<w:t xml:space="preserve">' + esc(line) + "</w:t></w:r>"
+        : "";
+      return "<w:p>" + pPr + run + "</w:p>";
+    })
+    .join("");
+}
+
+function bulletParagraphs(items) {
+  return items
+    .map(function (item) {
+      return (
+        '<w:p><w:pPr><w:spacing w:after="60"/><w:ind w:left="360" w:hanging="180"/></w:pPr><w:r><w:t xml:space="preserve">\u2022  ' +
+        esc(item) +
+        "</w:t></w:r></w:p>"
+      );
+    })
+    .join("");
+}
+
+function photoParagraphs(photos) {
+  if (!photos || !photos.length) return "";
+  return photos.map(photo => {
+    // Fits image proportionally inside the table column without overflowing margins
+    const maxDescWidthEmu = 3800000;  // ~4.15 inches
+    const maxDescHeightEmu = 2600000; // ~2.84 inches
+
+    let w = photo.width || 800;
+    let h = photo.height || 600;
+    let aspect = w / h;
+
+    let cx = maxDescWidthEmu;
+    let cy = Math.round(cx / aspect);
+
+    if (cy > maxDescHeightEmu) {
+      cy = maxDescHeightEmu;
+      cx = Math.round(cy * aspect);
+    }
+
+    return `
+      <w:p>
+        <w:pPr>
+          <w:jc w:val="center"/>
+          <w:spacing w:before="100" w:after="100"/>
+        </w:pPr>
+        <w:r>
+          <w:drawing>
+            <wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
+              <wp:extent cx="${cx}" cy="${cy}"/>
+              <wp:docPr id="${photo.docPrId}" name="Photo ${photo.docPrId}"/>
+              <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+                <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                  <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                    <pic:nvPicPr>
+                      <pic:cNvPr id="0" name="Picture"/>
+                      <pic:cNvPicPr/>
+                    </pic:nvPicPr>
+                    <pic:blipFill>
+                      <a:blip r:embed="${photo.relId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/>
+                      <a:stretch><a:fillRect/></a:stretch>
+                    </pic:blipFill>
+                    <pic:spPr>
+                      <a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>
+                      <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+                    </pic:spPr>
+                  </pic:pic>
+                </a:graphicData>
+              </a:graphic>
+            </wp:inline>
+          </w:drawing>
+        </w:r>
+      </w:p>
+    `;
+  }).join("");
+}
+
+var COL = { no: 700, desc: 6800, remark: 1526 };
+var TABLE_W = COL.no + COL.desc + COL.remark;
+
+function tcW(w) {
+  return '<w:tcW w:w="' + w + '" w:type="dxa"/>';
+}
+
+function borders() {
+  return (
+    "<w:tcBorders>" +
+    '<w:top w:val="single" w:sz="4" w:space="0" w:color="000000"/>' +
+    '<w:left w:val="single" w:sz="4" w:space="0" w:color="000000"/>' +
+    '<w:bottom w:val="single" w:sz="4" w:space="0" w:color="000000"/>' +
+    '<w:right w:val="single" w:sz="4" w:space="0" w:color="000000"/>' +
+    "</w:tcBorders>"
+  );
+}
+
+function tc(width, contentXml, vAlign) {
+  vAlign = vAlign || "top";
+  return (
+    "<w:tc><w:tcPr>" +
+    tcW(width) +
+    borders() +
+    '<w:vAlign w:val="' + vAlign + '"/></w:tcPr>' +
+    contentXml +
+    "</w:tc>"
+  );
+}
+
+function row(noText, descXml, remarkXml) {
+  var noCell = tc(
+    COL.no,
+    '<w:p><w:pPr><w:jc w:val="center"/></w:pPr>' +
+      (noText ? "<w:r><w:t>" + esc(noText) + "</w:t></w:r>" : "") +
+      "</w:p>",
+    "center"
+  );
+  var descCell = tc(COL.desc, descXml);
+  var remCell = tc(COL.remark, remarkXml || "<w:p/>", "center");
+  return "<w:tr>" + noCell + descCell + remCell + "</w:tr>";
+}
+
+function buildDocumentXml(data) {
+  var titleText =
+    data.inspectionType.toUpperCase() +
+    " INSPECTION CONDUCTED AT STATION " +
+    data.stationName +
+    " (" +
+    data.stationCode +
+    ") BY " +
+    data.officer +
+    " ON DATE " +
+    data.dateRange;
+
+  var titlePara =
+    '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="200"/></w:pPr><w:r><w:rPr><w:b/><w:u w:val="single"/></w:rPr><w:t xml:space="preserve">' +
+    esc(titleText) +
+    "</w:t></w:r></w:p>";
+
+  var headerRow =
+    '<w:tr><w:trPr><w:tblHeader/></w:trPr>' +
+    tc(COL.no, '<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>S.No</w:t></w:r></w:p>', "center") +
+    tc(COL.desc, '<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Description</w:t></w:r></w:p>', "center") +
+    tc(COL.remark, '<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Remark</w:t></w:r></w:p>', "center") +
+    "</w:tr>";
+
+  // 1. Staff on duty
+  var staffDescXml =
+    '<w:p><w:pPr><w:spacing w:after="60"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Staff on duty</w:t></w:r></w:p>' +
+    cellParagraphs(data.staffDescription) +
+    photoParagraphs(data.staffPhotos);
+  var staffRow = row("1", staffDescXml, cellParagraphs(data.staffRemark, { align: "center" }));
+
+  // 2. Observations Header
+  var obsHeaderXml = '<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Observations:</w:t></w:r></w:p>';
+  var obsHeaderRow = row("2", obsHeaderXml, "<w:p/>");
+
+  // 2.1, 2.2, ... Sub-observations
+  var obsSubIndex = 1;
+  var obsRows = data.observations
+    .filter(function (o) { return (o.description || "").trim().length > 0 || (o.photos && o.photos.length > 0); })
+    .map(function (o) {
+      var subNo = "2." + (obsSubIndex++);
+      return row(
+        subNo,
+        cellParagraphs(o.description) + photoParagraphs(o.photos),
+        cellParagraphs(o.remark, { align: "center" })
+      );
+    })
+    .join("");
+
+  // 3. Counseling
+  var counselingDescXml =
+    '<w:p><w:pPr><w:spacing w:after="60"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Counseling</w:t></w:r></w:p>' +
+    cellParagraphs(data.counselingIntro, { spacingAfter: 80 }) +
+    photoParagraphs(data.counselingPhotos) +
+    bulletParagraphs(data.counselingItems.filter(function (i) { return i.trim().length > 0; }));
+  var counselingRow = row("3", counselingDescXml, cellParagraphs(data.counselingRemark, { align: "center" }));
+
+  var table =
+    '<w:tbl><w:tblPr><w:tblW w:w="' + TABLE_W + '" w:type="dxa"/>' +
+    '<w:tblBorders>' +
+    '<w:top w:val="single" w:sz="4" w:space="0" w:color="000000"/>' +
+    '<w:left w:val="single" w:sz="4" w:space="0" w:color="000000"/>' +
+    '<w:bottom w:val="single" w:sz="4" w:space="0" w:color="000000"/>' +
+    '<w:right w:val="single" w:sz="4" w:space="0" w:color="000000"/>' +
+    '<w:insideH w:val="single" w:sz="4" w:space="0" w:color="000000"/>' +
+    '<w:insideV w:val="single" w:sz="4" w:space="0" w:color="000000"/>' +
+    '</w:tblBorders><w:tblLayout w:type="fixed"/></w:tblPr>' +
+    '<w:tblGrid><w:gridCol w:w="' + COL.no + '"/><w:gridCol w:w="' + COL.desc + '"/><w:gridCol w:w="' + COL.remark + '"/></w:tblGrid>' +
+    headerRow + staffRow + obsHeaderRow + obsRows + counselingRow +
+    "</w:tbl>";
+
+  var footerParas =
+    '<w:p><w:pPr><w:spacing w:before="200" w:after="0"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">No.: ' +
+    esc(data.refNo) +
+    "</w:t></w:r></w:p>" +
+    '<w:p><w:pPr><w:jc w:val="right"/><w:spacing w:after="200"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">' +
+    esc(data.signatory) +
+    "</w:t></w:r></w:p>" +
+    '<w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Copy to:</w:t></w:r></w:p>' +
+    data.copyTo
+      .filter(function (c) { return c.trim().length > 0; })
+      .map(function (c) {
+        return (
+          '<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:after="80"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">' +
+          esc(c) +
+          "</w:t></w:r></w:p>"
+        );
+      })
+      .join("");
+
+  var sectPr =
+    '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/>' +
+    '<w:pgMar w:top="1080" w:right="1080" w:bottom="1080" w:left="1080" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr>';
+
+  var body = "<w:body>" + titlePara + table + footerParas + sectPr + "</w:body>";
+
+  return (
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+    '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ' +
+    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +
+    'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" ' +
+    'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" ' +
+    'xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">\n' +
+    body +
+    "\n</w:document>"
+  );
+}
+
+var STYLES =
+  '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+  '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">\n' +
+  '<w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:sz w:val="22"/></w:rPr></w:rPrDefault></w:docDefaults>\n' +
+  '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>\n' +
+  "</w:styles>";
+
+var RELS =
+  '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+  '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n' +
+  '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>\n' +
+  "</Relationships>";
+
+function collectFormData() {
+  var observations = Array.from(document.querySelectorAll(".observation-entry")).map(function (el) {
+    return {
+      description: el.querySelector(".obs-desc").value,
+      remark: el.querySelector(".obs-remark").value,
+      photos: (photoStorage.get(el.dataset.photoKey) || []).slice()
+    };
+  });
+  var counselingItems = Array.from(document.querySelectorAll("#counselingItemsBody .bullet-input")).map(function (el) {
+    return el.value;
+  });
+  var copyTo = Array.from(document.querySelectorAll("#copyToBody .bullet-input")).map(function (el) {
+    return el.value;
+  });
+
+  return {
+    inspectionType: document.getElementById("inspectionType").value.trim() || "INSPECTION",
+    stationName: document.getElementById("stationName").value.trim() || "STATION",
+    stationCode: document.getElementById("stationCode").value.trim() || "CODE",
+    officer: document.getElementById("officer").value.trim() || "OFFICER",
+    dateRange: document.getElementById("dateRange").value.trim() || "DATE",
+    staffDescription: document.getElementById("staffDescription").value,
+    staffPhotos: (photoStorage.get("staffDescPhotos") || []).slice(),
+    staffRemark: document.getElementById("staffRemark").value,
+    observations: observations,
+    counselingIntro: document.getElementById("counselingIntro").value,
+    counselingPhotos: (photoStorage.get("counselingIntroPhotos") || []).slice(),
+    counselingItems: counselingItems,
+    counselingRemark: document.getElementById("counselingRemark").value,
+    refNo: document.getElementById("refNo").value,
+    signatory: document.getElementById("signatory").value,
+    copyTo: copyTo,
+  };
+}
+
+async function generateDocx() {
+  var statusEl = document.getElementById("status");
+  try {
+    statusEl.textContent = "Building document...";
+    var data = collectFormData();
+    var zip = new JSZip();
+
+    var allPhotos = [];
+    data.staffPhotos.forEach(p => allPhotos.push(p));
+    data.observations.forEach(o => (o.photos || []).forEach(p => allPhotos.push(p)));
+    data.counselingPhotos.forEach(p => allPhotos.push(p));
+
+    var wordMediaFolder = zip.folder("word").folder("media");
+    var docRelsList = [
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+    ];
+
+    allPhotos.forEach((photo, idx) => {
+      var relId = "rIdImg" + (idx + 1);
+      var docPrId = idx + 100;
+      var ext = "jpeg";
+      var filename = "image_" + (idx + 1) + "." + ext;
+
+      photo.relId = relId;
+      photo.docPrId = docPrId;
+
+      var base64Data = photo.dataUrl.split(",")[1];
+      wordMediaFolder.file(filename, base64Data, { base64: true });
+
+      docRelsList.push(
+        `<Relationship Id="${relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${filename}"/>`
+      );
+    });
+
+    var contentTypesXml =
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">\n' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>\n' +
+      '<Default Extension="xml" ContentType="application/xml"/>\n' +
+      '<Default Extension="jpeg" ContentType="image/jpeg"/>\n' +
+      '<Default Extension="jpg" ContentType="image/jpeg"/>\n' +
+      '<Default Extension="png" ContentType="image/png"/>\n' +
+      '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>\n' +
+      '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>\n' +
+      "</Types>";
+
+    var docRelsXml =
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n' +
+      docRelsList.join("\n") +
+      "\n</Relationships>";
+
+    zip.file("[Content_Types].xml", contentTypesXml);
+    zip.folder("_rels").file(".rels", RELS);
+
+    var wordFolder = zip.folder("word");
+    wordFolder.file("document.xml", buildDocumentXml(data));
+    wordFolder.file("styles.xml", STYLES);
+    wordFolder.folder("_rels").file("document.xml.rels", docRelsXml);
+
+    var blob = await zip.generateAsync({
+      type: "blob",
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+
+    var fileName =
+      "_Inspection_" +
+      (data.stationCode || "Report").replace(/[^a-zA-Z0-9]/g, "") +
+      ".docx";
+
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+
+    statusEl.textContent = "Downloaded " + fileName;
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = "Something went wrong: " + err.message;
+  }
+}
+
+document.getElementById("generateBtn").addEventListener("click", generateDocx);
+</script>
+
+</body>
+</html>
