@@ -102,7 +102,7 @@
     margin-bottom: 5px;
     font-weight: 600;
   }
-  input[type="text"], textarea {
+  input[type="text"], select, textarea {
     width: 100%;
     border: 1px solid var(--line);
     background: #fff;
@@ -112,11 +112,18 @@
     color: var(--ink);
     resize: vertical;
   }
-  input[type="text"]:focus, textarea:focus {
+  input[type="text"]:focus, select:focus, textarea:focus {
     outline: none;
     border-color: var(--accent);
   }
+  select {
+    cursor: pointer;
+  }
   .field { margin-bottom: 14px; }
+  .other-input {
+    margin-top: 6px;
+    display: none;
+  }
   .entry {
     border: 1px solid var(--line-soft);
     padding: 14px;
@@ -142,6 +149,9 @@
     line-height: 1;
     cursor: pointer;
     font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
   .remove-btn:hover { border-color: var(--accent); color: var(--accent); }
   .add-btn {
@@ -163,6 +173,28 @@
   }
   .bullet-row input { flex: 1; }
   .bullet-row .remove-btn { position: static; flex-shrink: 0; }
+
+  /* Dropdown bullet row */
+  .dropdown-bullet-row {
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed var(--line-soft);
+  }
+  .dropdown-bullet-row-top {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .dropdown-bullet-row-top select {
+    flex: 1;
+  }
+  .dropdown-bullet-row-top .remove-btn {
+    position: static;
+    flex-shrink: 0;
+  }
+  .dropdown-bullet-row .other-input {
+    margin-top: 6px;
+  }
 
   /* Photo Attachment Styles */
   .photo-action-bar {
@@ -305,19 +337,56 @@
         </div>
         <div class="field">
           <label for="officer">Inspecting officer / designation</label>
-          <input type="text" id="officer" placeholder="e.g. Sr.DOM/FZR" />
+          <select id="officer" onchange="handleDropdownChange(this, 'officer_other')">
+            <option value="">-- Select Inspecting Officer --</option>
+            <option value="Sr.DOM/FZR">Sr.DOM/FZR</option>
+            <option value="Sr.DOM/G/FZR">Sr.DOM/G/FZR</option>
+            <option value="DOM/M/FZR">DOM/M/FZR</option>
+            <option value="AOM/M/FZR">AOM/M/FZR</option>
+            <option value="AOM/CHG/FZR">AOM/CHG/FZR</option>
+            <option value="AOM/G/FZR">AOM/G/FZR</option>
+            <option value="AO/ASR">AO/ASR</option>
+            <option value="__OTHER__">Others (Manual Entry)</option>
+          </select>
+          <input type="text" id="officer_other" class="other-input" placeholder="Enter custom Inspecting Officer / Designation" />
         </div>
         <div class="field">
           <label for="dateRange">Date(s) of inspection</label>
-          <input type="text" id="dateRange" placeholder="e.g. 30-31/03/2026" />
+          <select id="dateRange" onchange="handleDropdownChange(this, 'dateRange_other')">
+            <!-- Dynamically populated with today's date on load -->
+            <option value="" id="todayDateOption">Current Date</option>
+            <option value="__OTHER__">Others (Manual Entry)</option>
+          </select>
+          <input type="text" id="dateRange_other" class="other-input" placeholder="e.g. 30-31/03/2026" />
         </div>
         <div class="field">
           <label for="refNo">Reference number</label>
-          <input type="text" id="refNo" placeholder="e.g. 143-T/Sr.DOM/FZR/2026" />
+          <select id="refNo" onchange="handleDropdownChange(this, 'refNo_other')">
+            <option value="">-- Select Reference Number --</option>
+            <option value="143-T/Sr.DOM/FZR/2026">143-T/Sr.DOM/FZR/2026</option>
+            <option value="143-T/Sr.DOM/G/FZR/2026">143-T/Sr.DOM/G/FZR/2026</option>
+            <option value="143-T/DOM/M/FZR/2026">143-T/DOM/M/FZR/2026</option>
+            <option value="143-T/AOM/M/FZR/2026">143-T/AOM/M/FZR/2026</option>
+            <option value="143-T/AOM/CHG/FZR/2026">143-T/AOM/CHG/FZR/2026</option>
+            <option value="143-T/AOM/G/FZR/2026">143-T/AOM/G/FZR/2026</option>
+            <option value="__OTHER__">Others (Manual Entry)</option>
+          </select>
+          <input type="text" id="refNo_other" class="other-input" placeholder="Enter custom Reference Number" />
         </div>
         <div class="field">
           <label for="signatory">Signature line</label>
-          <input type="text" id="signatory" placeholder="e.g. Sr.DOM/FZR." />
+          <select id="signatory" onchange="handleDropdownChange(this, 'signatory_other')">
+            <option value="">-- Select Signature Line --</option>
+            <option value="Sr.DOM/FZR">Sr.DOM/FZR</option>
+            <option value="Sr.DOM/G/FZR">Sr.DOM/G/FZR</option>
+            <option value="DOM/M/FZR">DOM/M/FZR</option>
+            <option value="AOM/M/FZR">AOM/M/FZR</option>
+            <option value="AOM/CHG/FZR">AOM/CHG/FZR</option>
+            <option value="AOM/G/FZR">AOM/G/FZR</option>
+            <option value="AO/ASR">AO/ASR</option>
+            <option value="__OTHER__">Others (Manual Entry)</option>
+          </select>
+          <input type="text" id="signatory_other" class="other-input" placeholder="Enter custom Signature Line" />
         </div>
       </div>
     </div>
@@ -415,6 +484,29 @@
 <script>
 const photoStorage = new Map();
 let photoIdCounter = 0;
+
+// Helper to show/hide 'Others' manual input box
+function handleDropdownChange(selectEl, customInputId) {
+  const otherInput = document.getElementById(customInputId);
+  if (!otherInput) return;
+  if (selectEl.value === '__OTHER__') {
+    otherInput.style.display = 'block';
+    otherInput.focus();
+  } else {
+    otherInput.style.display = 'none';
+    otherInput.value = '';
+  }
+}
+
+function getSelectedOrCustomValue(selectId, customInputId) {
+  const selectEl = document.getElementById(selectId);
+  if (!selectEl) return '';
+  if (selectEl.value === '__OTHER__') {
+    const customEl = document.getElementById(customInputId);
+    return customEl ? customEl.value.trim() : '';
+  }
+  return selectEl.value.trim();
+}
 
 function triggerPhoto(inputId, useCamera) {
   const input = document.getElementById(inputId);
@@ -601,8 +693,65 @@ function addCounselingItem() {
   document.getElementById("counselingItemsBody").appendChild(makeBulletRow("Topic discussed"));
 }
 
-function addCopyTo() {
-  document.getElementById("copyToBody").appendChild(makeBulletRow("Recipient, for information / action"));
+const copyToOptions = [
+  "PS to DRM for your kind information please.",
+  "ADRM for your kind information please.",
+  "Sr.DOM/FZR for your kind information please.",
+  "Sr.DSO/FZR for your kind information please.",
+  "Sr.DSTE/FZR for your kind information please.",
+  "DEN/HQ for your kind information please.",
+  "Sr.DEN-1 for your kind information please.",
+  "Sr.DEN-2 for your kind information please.",
+  "Sr.DEN-3 for your kind information please.",
+  "Sr.DME/FZR for your kind information please.",
+  "Sr.DEE/G for your kind information please."
+];
+
+let copyToCounter = 0;
+function makeCopyToRow(defaultValue = "") {
+  copyToCounter++;
+  const customInputId = `copyTo_other_${copyToCounter}`;
+  const div = document.createElement("div");
+  div.className = "dropdown-bullet-row copy-to-entry";
+
+  const optionsHtml = copyToOptions.map(opt => {
+    const selected = opt === defaultValue ? 'selected' : '';
+    return `<option value="${esc(opt)}" ${selected}>${esc(opt)}</option>`;
+  }).join("");
+
+  const isPreselectedOther = defaultValue && !copyToOptions.includes(defaultValue);
+
+  div.innerHTML = `
+    <div class="dropdown-bullet-row-top">
+      <select class="copy-to-select">
+        <option value="">-- Select Recipient, for information / action --</option>
+        ${optionsHtml}
+        <option value="__OTHER__" ${isPreselectedOther ? 'selected' : ''}>Others (Manual Entry)</option>
+      </select>
+      <button class="remove-btn" title="Remove">&times;</button>
+    </div>
+    <input type="text" id="${customInputId}" class="other-input" placeholder="Enter recipient, for information / action" value="${isPreselectedOther ? esc(defaultValue) : ''}" style="${isPreselectedOther ? 'display:block;' : 'display:none;'}" />
+  `;
+
+  const selectEl = div.querySelector(".copy-to-select");
+  const otherInput = div.querySelector(`#${customInputId}`);
+
+  selectEl.addEventListener("change", function() {
+    if (this.value === "__OTHER__") {
+      otherInput.style.display = "block";
+      otherInput.focus();
+    } else {
+      otherInput.style.display = "none";
+      otherInput.value = "";
+    }
+  });
+
+  div.querySelector(".remove-btn").addEventListener("click", () => div.remove());
+  return div;
+}
+
+function addCopyTo(defaultValue = "") {
+  document.getElementById("copyToBody").appendChild(makeCopyToRow(defaultValue));
 }
 
 function addSectionAddButton(containerId, label, onClick) {
@@ -620,8 +769,8 @@ addObservation();
 addObservation();
 addCounselingItem();
 addCounselingItem();
-addCopyTo();
-addCopyTo();
+addCopyTo("PS to DRM for your kind information please.");
+addCopyTo("ADRM for your kind information please.");
 
 addSectionAddButton("observationsBody", "+ Add observation", addObservation);
 document.getElementById("counselingItemsBody").after((() => {
@@ -633,7 +782,7 @@ document.getElementById("counselingItemsBody").after((() => {
   btn.addEventListener("click", addCounselingItem);
   return btn;
 })());
-addSectionAddButton("copyToBody", "+ Add recipient", addCopyTo);
+addSectionAddButton("copyToBody", "+ Add recipient", () => addCopyTo());
 
 function esc(s) {
   return String(s || "")
@@ -682,7 +831,6 @@ function bulletParagraphs(items) {
 function photoParagraphs(photos) {
   if (!photos || !photos.length) return "";
   return photos.map(photo => {
-    // Fits image proportionally inside the table column without overflowing margins
     const maxDescWidthEmu = 3800000;  // ~4.15 inches
     const maxDescHeightEmu = 2600000; // ~2.84 inches
 
@@ -850,18 +998,20 @@ function buildDocumentXml(data) {
     "</w:tbl>";
 
   var footerParas =
-    '<w:p><w:pPr><w:spacing w:before="200" w:after="0"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">No.: ' +
-    esc(data.refNo) +
-    "</w:t></w:r></w:p>" +
-    '<w:p><w:pPr><w:jc w:val="right"/><w:spacing w:after="200"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">' +
-    esc(data.signatory) +
-    "</w:t></w:r></w:p>" +
+    '<w:p>' +
+    '<w:pPr>' +
+    '<w:tabs><w:tab w:val="right" w:pos="' + TABLE_W + '"/></w:tabs>' +
+    '<w:spacing w:before="720" w:after="240"/>' +
+    '</w:pPr>' +
+    '<w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">No.: ' + esc(data.refNo) + '</w:t></w:r>' +
+    '<w:r><w:rPr><w:b/></w:rPr><w:tab/><w:t xml:space="preserve">' + esc(data.signatory) + '</w:t></w:r>' +
+    '</w:p>' +
     '<w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>Copy to:</w:t></w:r></w:p>' +
     data.copyTo
       .filter(function (c) { return c.trim().length > 0; })
       .map(function (c) {
         return (
-          '<w:p><w:pPr><w:ind w:left="360"/><w:spacing w:after="80"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">' +
+          '<w:p><w:pPr><w:ind w:left="840"/><w:spacing w:after="80"/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">' +
           esc(c) +
           "</w:t></w:r></w:p>"
         );
@@ -907,19 +1057,26 @@ function collectFormData() {
       photos: (photoStorage.get(el.dataset.photoKey) || []).slice()
     };
   });
+
   var counselingItems = Array.from(document.querySelectorAll("#counselingItemsBody .bullet-input")).map(function (el) {
     return el.value;
   });
-  var copyTo = Array.from(document.querySelectorAll("#copyToBody .bullet-input")).map(function (el) {
-    return el.value;
+
+  var copyTo = Array.from(document.querySelectorAll(".copy-to-entry")).map(function (el) {
+    var selectEl = el.querySelector(".copy-to-select");
+    if (selectEl.value === "__OTHER__") {
+      var otherInput = el.querySelector(".other-input");
+      return otherInput ? otherInput.value.trim() : "";
+    }
+    return selectEl.value.trim();
   });
 
   return {
     inspectionType: document.getElementById("inspectionType").value.trim() || "INSPECTION",
     stationName: document.getElementById("stationName").value.trim() || "STATION",
     stationCode: document.getElementById("stationCode").value.trim() || "CODE",
-    officer: document.getElementById("officer").value.trim() || "OFFICER",
-    dateRange: document.getElementById("dateRange").value.trim() || "DATE",
+    officer: getSelectedOrCustomValue("officer", "officer_other") || "OFFICER",
+    dateRange: getSelectedOrCustomValue("dateRange", "dateRange_other") || "DATE",
     staffDescription: document.getElementById("staffDescription").value,
     staffPhotos: (photoStorage.get("staffDescPhotos") || []).slice(),
     staffRemark: document.getElementById("staffRemark").value,
@@ -928,8 +1085,8 @@ function collectFormData() {
     counselingPhotos: (photoStorage.get("counselingIntroPhotos") || []).slice(),
     counselingItems: counselingItems,
     counselingRemark: document.getElementById("counselingRemark").value,
-    refNo: document.getElementById("refNo").value,
-    signatory: document.getElementById("signatory").value,
+    refNo: getSelectedOrCustomValue("refNo", "refNo_other") || "",
+    signatory: getSelectedOrCustomValue("signatory", "signatory_other") || "",
     copyTo: copyTo,
   };
 }
@@ -1019,6 +1176,23 @@ async function generateDocx() {
     statusEl.textContent = "Something went wrong: " + err.message;
   }
 }
+
+// Populate current date in Date(s) of inspection
+(function initCurrentDate() {
+  const now = new Date();
+  const dd = String(now.getDate()).padStart(2, '0');
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const yyyy = now.getFullYear();
+  const formattedToday = `${dd}/${mm}/${yyyy}`;
+  
+  const todayOpt = document.getElementById("todayDateOption");
+  const dateSelect = document.getElementById("dateRange");
+  if (todayOpt && dateSelect) {
+    todayOpt.value = formattedToday;
+    todayOpt.textContent = `Current Date (${formattedToday})`;
+    dateSelect.value = formattedToday;
+  }
+})();
 
 document.getElementById("generateBtn").addEventListener("click", generateDocx);
 </script>
